@@ -1,0 +1,17 @@
+ea4bc82a6ad023ab7ee23ee620429895
+::res://::1761808281
+avatar_definition.gd::GDScript::-1::1761761314::0::1::::AvatarDefinition<>Resource<>::
+avatar_preset.gd::GDScript::-1::1761761321::0::1::::AvatarPreset<>Resource<>::
+demo.tscn::PackedScene::-1::1761761456::0::1::::<><>::res://demo_ui.gd
+demo_ui.gd::GDScript::-1::1761761420::0::1::::<>Control<>::
+README.md::TextFile::-1::1761761627::0::1::::<><>::
+VtuberHub.gdextension::GDExtension::-1::1761808263::0::1::::<><>::
+::res://addons/::1761807616
+::res://addons/vtuberhub/::1761807616
+::res://addons/vtuberhub/bin/::1761808278
+::res://addons/vtuberhub_editor/::1761761381
+plugin.cfg::TextFile::-1::1761808130::0::1::::<><>::
+plugin.gd::GDScript::-1::1761761342::0::1::::<>EditorPlugin<>::
+preset_dock.gd::GDScript::-1::1761761381::0::1::::<>Node<>::
+preset_dock.tscn::PackedScene::-1::1761761367::0::1::::<><>::res://addons/vtuberhub_editor/preset_dock.gd
+preset_importer.gd::GDScript::-1::1761761355::0::1::::<>EditorImportPlugin<>::

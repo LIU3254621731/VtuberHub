@@ -1,0 +1,35 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://addons/vtuberhub_editor/preset_dock.gd" id="1_8px13"]
+
+[node name="VtuberHubDock" type="PanelContainer"]
+custom_minimum_size = Vector2(280, 220)
+
+[node name="VBox" type="VBoxContainer" parent="."]
+anchor_right = 1.0
+anchor_bottom = 1.0
+margin_left = 8.0
+margin_top = 8.0
+margin_right = -8.0
+margin_bottom = -8.0
+
+[node name="Label" type="Label" parent="VBox"]
+text = "Apply AvatarPreset to selected AvatarAssembler3D"
+
+[node name="PresetPath" type="LineEdit" parent="VBox"]
+placeholder_text = "res://path/to/preset.tres"
+
+[node name="HBox" type="HBoxContainer" parent="VBox"]
+
+[node name="BtnBrowse" type="Button" parent="VBox/HBox"]
+text = "Browse"
+
+[node name="BtnApply" type="Button" parent="VBox/HBox"]
+text = "Apply"
+
+[node name="Log" type="RichTextLabel" parent="VBox"]
+size_flags_vertical = 3
+bbcode_enabled = true
+
+[node name="Script" type="Node" parent="."]
+script = ExtResource("1_8px13")

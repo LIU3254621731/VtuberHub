@@ -1,0 +1,11 @@
+[configuration]
+entry_symbol="GDExtensionInit"
+compatibility_minimum="4.2"
+
+[libraries]
+windows.x86_64="res://addons/vtuberhub/bin/vtuberhub_bridge.windows.dll"
+windows.debug="res://addons/vtuberhub/bin/vtuberhub_bridge.windows.dll"
+windows.release="res://addons/vtuberhub/bin/vtuberhub_bridge.windows.dll"
+
+[dependencies]
+# No extra dependencies declared here. Keep empty sections if unused.

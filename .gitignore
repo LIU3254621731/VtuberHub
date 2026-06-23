@@ -1,0 +1,56 @@
+﻿# Visual Studio
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+*/x64/
+*/Debug/
+*/Release/
+*/bin/
+*/obj/
+*.VC.db
+*.VC.opendb
+
+# VS Code
+.vscode/
+
+# Large binary dependencies
+OpenCV/
+mediapipe/
+godot-cpp/
+
+# Build outputs
+build/
+dist/
+*.exe
+*.dll
+*.pdb
+
+# IDE
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# User data
+users/
+
+# CMake
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+Makefile
+!**/CMakeLists.txt
+
+# Build artifacts (aggressive)
+**/bin/
+**/obj/
+**/Debug/
+**/Release/
+**/x64/
+*.log
+

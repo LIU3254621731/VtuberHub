@@ -1,0 +1,550 @@
+using UnityEngine;
+using System.Collections.Generic;
+
+// ProceduralHuman.cs
+// 说明（中文注释）：
+// 这是一个基于 Unity 的程序化三维人体构建脚本（示例级实现）。
+// 目标：生成一个以成年男性 1.80m 为基准比例的可视化人体模型，包含
+// 头部（眼睛、眼皮、面部大体块）、嘴唇、手指、脚趾等结构的细节构建。
+// 实现方法：使用 Unity 原始体（Sphere, Capsule, Cylinder）组合分段构建
+// ——这不是精细雕刻网格（如 ZBrush 级别）的替代方案，但可作为高精度模型
+// 的程序化基础（便于后续细化、细分、骨骼绑定与导出）。
+//
+// 使用方式：
+// 1. 在 Unity 项目中创建一个空 GameObject，添加此脚本为组件。
+// 2. 在 Inspector 中可调整参数（Height、SkinMaterial 等），然后在组件菜单
+//    中点击右上角的齿轮 -> Reset 或通过右键菜单调用 "Generate Human"。
+//    或在运行时按下 Generate 按钮（脚本提供 ContextMenu）。
+// 3. 生成后，会在脚本所在 GameObject 下生成一棵分层的模型结构，便于查看
+//    和后续编辑（网格合并、骨骼绑定、导出）。
+//
+// 限制与扩展建议：
+// - 本脚本使用原始体拼接与比例校正，产生的网格适合进一步雕刻或细化（例如
+//   用 Subdivision Surface、烘焙法线贴图、手工拓扑优化）。
+// - 若需要真实面部肌肉驱动（BlendShapes / Facial Rig），请将本模型导入 DCC
+//   工具（Blender/Maya/ZBrush）制作高精度拓扑与 BlendShape 或使用基于
+//   骨骼+肌肉系统的插件。
+// - 如需直接生成单一合并网格或自动绑定骨骼/权重，也可以我再帮你扩展。
+//
+// 作者：ChatGPT / 示例代码。请根据项目需要进行改进与优化。
+
+[ExecuteInEditMode]
+public class ProceduralHuman : MonoBehaviour
+{
+    [Header("总体参数")]
+    [Tooltip("目标身高（米），默认 1.8m")]
+    public float targetHeight = 1.80f;
+
+    [Tooltip("皮肤材质（可赋值一个 PBR 材质）")]
+    public Material skinMaterial;
+
+    [Tooltip("眼睛材质（白球）")]
+    public Material eyeWhiteMaterial;
+
+    [Tooltip("虹膜材质（需要支持贴图或颜色）")]
+    public Material irisMaterial;
+
+    [Tooltip("服装占位材质（若需要）")]
+    public Material clothMaterial;
+
+    [Header("细节强度（0-1，越大越细节）")]
+    [Range(0f, 1f)]
+    public float detail = 0.8f;
+
+    [Header("选项")]
+    public bool generateEyes = true;
+    public bool generateEyelids = true;
+    public bool generateFingers = true;
+    public bool generateToes = true;
+
+    // 生成的根节点
+    private GameObject root;
+
+    [ContextMenu("Generate Human")]
+    public void Generate()
+    {
+        ClearPrevious();
+        BuildHuman();
+    }
+
+    void ClearPrevious()
+    {
+        // 删除旧的生成对象
+        List<GameObject> toDestroy = new List<GameObject>();
+        foreach (Transform t in transform)
+        {
+            toDestroy.Add(t.gameObject);
+        }
+        foreach (var go in toDestroy)
+        {
+#if UNITY_EDITOR
+            DestroyImmediate(go);
+#else
+            Destroy(go);
+#endif
+        }
+    }
+
+    void BuildHuman()
+    {
+        root = new GameObject("ProceduralHuman_Root");
+        root.transform.parent = transform;
+        root.transform.localPosition = Vector3.zero;
+        root.transform.localRotation = Quaternion.identity;
+
+        // 按典型成人男性比例计算各部位的大致高度
+        // 这里以头高为单位：成年人头高约 1/7.5 ~ 1/8
+        float headHeight = targetHeight / 7.5f; // 头部高度
+        float neckHeight = headHeight * 0.25f;
+        float torsoHeight = targetHeight * 0.35f; // 胸腹合计
+        float armLength = targetHeight * 0.45f; // 肩到手
+        float legLength = targetHeight * 0.45f; // 臀到脚
+
+        // 建立骨架级父物体
+        GameObject head = BuildHead(headHeight);
+        head.transform.parent = root.transform;
+        head.transform.localPosition = new Vector3(0, torsoHeight + neckHeight + headHeight * 0.5f, 0);
+
+        GameObject neck = BuildNeck(neckHeight, headHeight * 0.45f);
+        neck.transform.parent = root.transform;
+        neck.transform.localPosition = new Vector3(0, torsoHeight + neckHeight * 0.5f, 0);
+
+        GameObject torso = BuildTorso(torsoHeight, headHeight);
+        torso.transform.parent = root.transform;
+        torso.transform.localPosition = new Vector3(0, torsoHeight * 0.5f, 0);
+
+        // 左右手臂
+        GameObject leftArm = BuildArm(armLength, headHeight, "LeftArm");
+        leftArm.transform.parent = root.transform;
+        leftArm.transform.localPosition = new Vector3(-0.22f * targetHeight, torsoHeight, 0);
+
+        GameObject rightArm = BuildArm(armLength, headHeight, "RightArm");
+        rightArm.transform.parent = root.transform;
+        rightArm.transform.localPosition = new Vector3(0.22f * targetHeight, torsoHeight, 0);
+
+        // 腿
+        GameObject leftLeg = BuildLeg(legLength, headHeight, "LeftLeg");
+        leftLeg.transform.parent = root.transform;
+        leftLeg.transform.localPosition = new Vector3(-0.10f * targetHeight, 0, 0);
+
+        GameObject rightLeg = BuildLeg(legLength, headHeight, "RightLeg");
+        rightLeg.transform.parent = root.transform;
+        rightLeg.transform.localPosition = new Vector3(0.10f * targetHeight, 0, 0);
+
+        // 缩放整体以适配 targetHeight（如果比例基于计算有差异）
+        float currentHeight = torsoHeight + neckHeight + headHeight; // 站立模型总高度近似
+        float scale = targetHeight / (currentHeight + 0.001f);
+        root.transform.localScale = Vector3.one * scale;
+
+#if UNITY_EDITOR
+        UnityEditor.Selection.activeGameObject = root;
+#endif
+    }
+
+    // ---------- Head ----------
+    GameObject BuildHead(float headHeight)
+    {
+        GameObject headGO = new GameObject("Head");
+
+        // 头骨（近似球体）
+        GameObject skull = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+        skull.name = "Skull";
+        skull.transform.parent = headGO.transform;
+        skull.transform.localPosition = Vector3.zero;
+        skull.transform.localScale = new Vector3(0.9f, 1.0f, 1.0f) * headHeight;
+        ApplyMaterial(skull, skinMaterial);
+
+        // 下颌（下巴）
+        GameObject jaw = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+        jaw.name = "Jaw";
+        jaw.transform.parent = headGO.transform;
+        jaw.transform.localScale = new Vector3(0.7f, 0.45f, 0.9f) * headHeight;
+        jaw.transform.localPosition = new Vector3(0, -0.25f * headHeight, 0.06f * headHeight);
+        ApplyMaterial(jaw, skinMaterial);
+
+        // 面部肌肉块（用几个球体近似，便于后续驱动）
+        GameObject cheekL = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+        cheekL.name = "Cheek_L";
+        cheekL.transform.parent = headGO.transform;
+        cheekL.transform.localScale = new Vector3(0.35f, 0.18f, 0.5f) * headHeight;
+        cheekL.transform.localPosition = new Vector3(-0.22f * headHeight, -0.05f * headHeight, 0.15f * headHeight);
+        ApplyMaterial(cheekL, skinMaterial);
+
+        GameObject cheekR = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+        cheekR.name = "Cheek_R";
+        cheekR.transform.parent = headGO.transform;
+        cheekR.transform.localScale = new Vector3(0.35f, 0.18f, 0.5f) * headHeight;
+        cheekR.transform.localPosition = new Vector3(0.22f * headHeight, -0.05f * headHeight, 0.15f * headHeight);
+        ApplyMaterial(cheekR, skinMaterial);
+
+        // 鼻子（用两个缩放的球体叠加）
+        GameObject noseBridge = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+        noseBridge.name = "NoseBridge";
+        noseBridge.transform.parent = headGO.transform;
+        noseBridge.transform.localScale = new Vector3(0.12f, 0.25f, 0.12f) * headHeight;
+        noseBridge.transform.localPosition = new Vector3(0, 0.0f * headHeight, 0.35f * headHeight);
+        noseBridge.transform.localRotation = Quaternion.Euler(90, 0, 0);
+        ApplyMaterial(noseBridge, skinMaterial);
+
+        GameObject noseTip = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+        noseTip.name = "NoseTip";
+        noseTip.transform.parent = headGO.transform;
+        noseTip.transform.localScale = new Vector3(0.18f, 0.12f, 0.20f) * headHeight;
+        noseTip.transform.localPosition = new Vector3(0, -0.05f * headHeight, 0.56f * headHeight);
+        ApplyMaterial(noseTip, skinMaterial);
+
+        // 眼睛
+        if (generateEyes)
+        {
+            GameObject leftEye = BuildEye(headHeight * 0.18f, "LeftEye");
+            leftEye.transform.parent = headGO.transform;
+            leftEye.transform.localPosition = new Vector3(-0.18f * headHeight, 0.06f * headHeight, 0.42f * headHeight);
+
+            GameObject rightEye = BuildEye(headHeight * 0.18f, "RightEye");
+            rightEye.transform.parent = headGO.transform;
+            rightEye.transform.localPosition = new Vector3(0.18f * headHeight, 0.06f * headHeight, 0.42f * headHeight);
+
+            if (generateEyelids)
+            {
+                BuildEyelids(leftEye.transform, headHeight * 0.20f, "LeftEyelid", headGO.transform);
+                BuildEyelids(rightEye.transform, headHeight * 0.20f, "RightEyelid", headGO.transform);
+            }
+        }
+
+        // 嘴巴（上下唇用球体和缩放的圆环近似）
+        GameObject mouth = new GameObject("Mouth");
+        mouth.transform.parent = headGO.transform;
+        mouth.transform.localPosition = new Vector3(0, -0.12f * headHeight, 0.45f * headHeight);
+
+        GameObject upperLip = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+        upperLip.name = "UpperLip";
+        upperLip.transform.parent = mouth.transform;
+        upperLip.transform.localScale = new Vector3(0.28f, 0.08f, 0.08f) * headHeight;
+        upperLip.transform.localPosition = new Vector3(0, 0.03f * headHeight, 0);
+        ApplyMaterial(upperLip, skinMaterial);
+
+        GameObject lowerLip = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+        lowerLip.name = "LowerLip";
+        lowerLip.transform.parent = mouth.transform;
+        lowerLip.transform.localScale = new Vector3(0.28f, 0.10f, 0.1f) * headHeight;
+        lowerLip.transform.localPosition = new Vector3(0, -0.03f * headHeight, 0);
+        ApplyMaterial(lowerLip, skinMaterial);
+
+        // 牙齿与舌头占位
+        GameObject teeth = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        teeth.name = "Teeth";
+        teeth.transform.parent = mouth.transform;
+        teeth.transform.localScale = new Vector3(0.22f, 0.03f, 0.05f) * headHeight;
+        teeth.transform.localPosition = new Vector3(0, 0.00f * headHeight, 0.03f * headHeight);
+        ApplyMaterial(teeth, clothMaterial);
+
+        // 简单的耳朵
+        GameObject earL = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+        earL.name = "Ear_L";
+        earL.transform.parent = headGO.transform;
+        earL.transform.localPosition = new Vector3(-0.48f * headHeight, 0.0f * headHeight, 0.12f * headHeight);
+        earL.transform.localScale = new Vector3(0.12f, 0.22f, 0.05f) * headHeight;
+        ApplyMaterial(earL, skinMaterial);
+
+        GameObject earR = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+        earR.name = "Ear_R";
+        earR.transform.parent = headGO.transform;
+        earR.transform.localPosition = new Vector3(0.48f * headHeight, 0.0f * headHeight, 0.12f * headHeight);
+        earR.transform.localScale = new Vector3(0.12f, 0.22f, 0.05f) * headHeight;
+        ApplyMaterial(earR, skinMaterial);
+
+        return headGO;
+    }
+
+    GameObject BuildEye(float radius, string name)
+    {
+        GameObject eyeRoot = new GameObject(name);
+
+        // 眼球（白色球）
+        GameObject sclera = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+        sclera.name = "Sclera";
+        sclera.transform.parent = eyeRoot.transform;
+        sclera.transform.localPosition = Vector3.zero;
+        sclera.transform.localScale = Vector3.one * radius;
+        ApplyMaterial(sclera, eyeWhiteMaterial ?? skinMaterial);
+
+        // 虹膜（比球微小外凸）
+        GameObject iris = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+        iris.name = "Iris";
+        iris.transform.parent = eyeRoot.transform;
+        iris.transform.localScale = Vector3.one * radius * 0.35f;
+        iris.transform.localPosition = new Vector3(0, 0, radius * 0.85f);
+        ApplyMaterial(iris, irisMaterial ?? eyeWhiteMaterial ?? skinMaterial);
+
+        // 瞳孔（黑色平面或极小球）
+        GameObject pupil = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+        pupil.name = "Pupil";
+        pupil.transform.parent = eyeRoot.transform;
+        pupil.transform.localScale = Vector3.one * radius * 0.12f;
+        pupil.transform.localPosition = new Vector3(0, 0, radius * 0.95f);
+        Material blackMat = new Material(Shader.Find("Standard"));
+        blackMat.color = Color.black;
+        ApplyMaterial(pupil, blackMat);
+
+        return eyeRoot;
+    }
+
+    void BuildEyelids(Transform eyeTransform, float size, string eyelidName, Transform parent)
+    {
+        GameObject lidRoot = new GameObject(eyelidName);
+        lidRoot.transform.parent = parent;
+        lidRoot.transform.localPosition = eyeTransform.localPosition;
+
+        // 上眼皮
+        GameObject upper = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+        upper.name = "UpperEyelid";
+        upper.transform.parent = lidRoot.transform;
+        upper.transform.localScale = new Vector3(size * 1.05f, size * 0.45f, size * 1.05f);
+        upper.transform.localPosition = new Vector3(0, size * 0.18f, 0);
+        ApplyMaterial(upper, skinMaterial);
+
+        // 下眼皮
+        GameObject lower = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+        lower.name = "LowerEyelid";
+        lower.transform.parent = lidRoot.transform;
+        lower.transform.localScale = new Vector3(size * 1.05f, size * 0.45f, size * 1.05f);
+        lower.transform.localPosition = new Vector3(0, -size * 0.12f, 0);
+        ApplyMaterial(lower, skinMaterial);
+
+        // 为了实现闭眼效果，可在后续通过旋转/位移控制 upper/lower
+    }
+
+    // ---------- Neck ----------
+    GameObject BuildNeck(float neckHeight, float neckRadius)
+    {
+        GameObject neck = new GameObject("Neck");
+        GameObject n = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+        n.name = "NeckCylinder";
+        n.transform.parent = neck.transform;
+        n.transform.localScale = new Vector3(neckRadius * 0.6f, neckHeight * 0.5f, neckRadius * 0.6f);
+        n.transform.localPosition = Vector3.zero;
+        ApplyMaterial(n, skinMaterial);
+        return neck;
+    }
+
+    // ---------- Torso ----------
+    GameObject BuildTorso(float torsoHeight, float headHeight)
+    {
+        GameObject torso = new GameObject("Torso");
+        // 胸腔（Capsule）
+        GameObject chest = GameObject.CreatePrimitive(PrimitiveType.Capsule);
+        chest.name = "Chest";
+        chest.transform.parent = torso.transform;
+        chest.transform.localScale = new Vector3(0.48f * headHeight, torsoHeight * 0.6f, 0.28f * headHeight);
+        chest.transform.localRotation = Quaternion.Euler(0, 0, 0);
+        chest.transform.localPosition = new Vector3(0, torsoHeight * 0.2f, 0);
+        ApplyMaterial(chest, skinMaterial);
+
+        // 腹部
+        GameObject belly = GameObject.CreatePrimitive(PrimitiveType.Capsule);
+        belly.name = "Belly";
+        belly.transform.parent = torso.transform;
+        belly.transform.localScale = new Vector3(0.46f * headHeight, torsoHeight * 0.4f, 0.26f * headHeight);
+        belly.transform.localPosition = new Vector3(0, -torsoHeight * 0.15f, 0);
+        ApplyMaterial(belly, skinMaterial);
+
+        return torso;
+    }
+
+    // ---------- Arm (shoulder->upper->lower->hand->fingers) ----------
+    GameObject BuildArm(float totalLength, float headHeight, string name)
+    {
+        GameObject armRoot = new GameObject(name);
+
+        float upperLen = totalLength * 0.45f;
+        float lowerLen = totalLength * 0.40f;
+        float handLen = totalLength * 0.15f;
+
+        // 肩部占位
+        GameObject shoulder = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+        shoulder.name = "Shoulder";
+        shoulder.transform.parent = armRoot.transform;
+        shoulder.transform.localScale = Vector3.one * headHeight * 0.28f;
+        ApplyMaterial(shoulder, skinMaterial);
+
+        // 上臂
+        GameObject upper = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+        upper.name = "UpperArm";
+        upper.transform.parent = armRoot.transform;
+        upper.transform.localScale = new Vector3(0.12f * headHeight, upperLen * 0.5f, 0.12f * headHeight);
+        upper.transform.localPosition = new Vector3(0, -upperLen * 0.5f, 0);
+        upper.transform.localRotation = Quaternion.Euler(0, 0, 0);
+        ApplyMaterial(upper, skinMaterial);
+
+        // 肘
+        GameObject elbow = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+        elbow.name = "Elbow";
+        elbow.transform.parent = armRoot.transform;
+        elbow.transform.localScale = Vector3.one * headHeight * 0.11f;
+        elbow.transform.localPosition = new Vector3(0, -upperLen, 0);
+        ApplyMaterial(elbow, skinMaterial);
+
+        // 前臂
+        GameObject lower = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+        lower.name = "LowerArm";
+        lower.transform.parent = armRoot.transform;
+        lower.transform.localScale = new Vector3(0.10f * headHeight, lowerLen * 0.5f, 0.10f * headHeight);
+        lower.transform.localPosition = new Vector3(0, -upperLen - lowerLen * 0.5f, 0);
+        ApplyMaterial(lower, skinMaterial);
+
+        // 手掌（近似盒子+手指）
+        GameObject hand = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        hand.name = "Hand";
+        hand.transform.parent = armRoot.transform;
+        hand.transform.localScale = new Vector3(0.12f * headHeight, 0.04f * headHeight, 0.18f * headHeight);
+        hand.transform.localPosition = new Vector3(0, -upperLen - lowerLen - 0.02f * headHeight, 0.05f * headHeight);
+        ApplyMaterial(hand, skinMaterial);
+
+        if (generateFingers)
+        {
+            BuildFingers(hand.transform, headHeight * 0.04f, "Fingers");
+        }
+
+        return armRoot;
+    }
+
+    void BuildFingers(Transform handRoot, float fingerRadius, string name)
+    {
+        GameObject fingerRoot = new GameObject(name);
+        fingerRoot.transform.parent = handRoot;
+        fingerRoot.transform.localPosition = new Vector3(0, 0, 0);
+
+        // 五指，每指 3 节，拇指 2 节，排列
+        float baseZ = 0.06f * targetHeight;
+        float spacing = 0.035f * targetHeight * 0.6f;
+        for (int i = 0; i < 5; i++)
+        {
+            GameObject finger = new GameObject("Finger_" + i);
+            finger.transform.parent = fingerRoot.transform;
+            float xOffset = (i - 2) * spacing;
+            finger.transform.localPosition = new Vector3(xOffset, 0, baseZ);
+
+            int segments = (i == 0) ? 2 : 3; // 拇指较短
+            float segLen = 0.035f * targetHeight * (i == 0 ? 0.8f : 1.0f);
+            Vector3 curPos = Vector3.zero;
+            for (int s = 0; s < segments; s++)
+            {
+                GameObject phalange = GameObject.CreatePrimitive(PrimitiveType.Capsule);
+                phalange.name = "Phalange_" + s;
+                phalange.transform.parent = finger.transform;
+                phalange.transform.localPosition = curPos + new Vector3(0, -segLen * (s + 0.5f), 0);
+                phalange.transform.localScale = new Vector3(fingerRadius, segLen * 0.5f, fingerRadius);
+                phalange.transform.localRotation = Quaternion.identity;
+                ApplyMaterial(phalange, skinMaterial);
+                curPos += new Vector3(0, -segLen, 0);
+            }
+        }
+    }
+
+    // ---------- Leg (hip->thigh->calf->foot->toes) ----------
+    GameObject BuildLeg(float totalLength, float headHeight, string name)
+    {
+        GameObject legRoot = new GameObject(name);
+
+        float thigh = totalLength * 0.48f;
+        float calf = totalLength * 0.44f;
+        float footLen = totalLength * 0.08f;
+
+        // 臀部
+        GameObject hip = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+        hip.name = "Hip";
+        hip.transform.parent = legRoot.transform;
+        hip.transform.localScale = Vector3.one * headHeight * 0.32f;
+        ApplyMaterial(hip, skinMaterial);
+
+        // 大腿
+        GameObject thighObj = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+        thighObj.name = "Thigh";
+        thighObj.transform.parent = legRoot.transform;
+        thighObj.transform.localScale = new Vector3(0.18f * headHeight, thigh * 0.5f, 0.18f * headHeight);
+        thighObj.transform.localPosition = new Vector3(0, -thigh * 0.5f, 0);
+        ApplyMaterial(thighObj, skinMaterial);
+
+        // 膝盖
+        GameObject knee = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+        knee.name = "Knee";
+        knee.transform.parent = legRoot.transform;
+        knee.transform.localScale = Vector3.one * headHeight * 0.12f;
+        knee.transform.localPosition = new Vector3(0, -thigh, 0);
+        ApplyMaterial(knee, skinMaterial);
+
+        // 小腿
+        GameObject calfObj = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+        calfObj.name = "Calf";
+        calfObj.transform.parent = legRoot.transform;
+        calfObj.transform.localScale = new Vector3(0.14f * headHeight, calf * 0.5f, 0.14f * headHeight);
+        calfObj.transform.localPosition = new Vector3(0, -thigh - calf * 0.5f, 0);
+        ApplyMaterial(calfObj, skinMaterial);
+
+        // 脚掌
+        GameObject foot = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        foot.name = "Foot";
+        foot.transform.parent = legRoot.transform;
+        foot.transform.localScale = new Vector3(0.14f * headHeight, 0.05f * headHeight, footLen);
+        foot.transform.localPosition = new Vector3(0, -thigh - calf - 0.02f * headHeight, 0.06f * headHeight);
+        ApplyMaterial(foot, skinMaterial);
+
+        if (generateToes)
+        {
+            BuildToes(foot.transform, headHeight * 0.03f, "Toes");
+        }
+
+        return legRoot;
+    }
+
+    void BuildToes(Transform foot, float toeRadius, string name)
+    {
+        GameObject toes = new GameObject(name);
+        toes.transform.parent = foot;
+        toes.transform.localPosition = new Vector3(0, 0, foot.localScale.z * 0.5f);
+
+        float spacing = 0.025f * targetHeight;
+        for (int i = 0; i < 5; i++)
+        {
+            GameObject toe = GameObject.CreatePrimitive(PrimitiveType.Capsule);
+            toe.name = "Toe_" + i;
+            toe.transform.parent = toes.transform;
+            float x = (i - 2) * spacing * 0.6f;
+            toe.transform.localPosition = new Vector3(x, -0.02f * targetHeight, 0.02f * targetHeight + i * 0.005f);
+            toe.transform.localScale = new Vector3(toeRadius, 0.02f * targetHeight, toeRadius);
+            ApplyMaterial(toe, skinMaterial);
+        }
+    }
+
+    // ---------- Helpers ----------
+    void ApplyMaterial(GameObject go, Material mat)
+    {
+        if (go == null) return;
+        Renderer r = go.GetComponent<Renderer>();
+        if (r != null)
+        {
+            if (mat != null)
+            {
+                r.sharedMaterial = mat;
+            }
+            else
+            {
+                // 赋默认材质并调整
+                Material defaultMat = new Material(Shader.Find("Standard"));
+                defaultMat.color = new Color(0.9f, 0.8f, 0.7f);
+                r.sharedMaterial = defaultMat;
+            }
+        }
+
+        // 移除 Collider（原始体自动带 Collider）以便后续手动添加更合理的碰撞体
+        Collider c = go.GetComponent<Collider>();
+        if (c != null)
+        {
+#if UNITY_EDITOR
+            DestroyImmediate(c);
+#else
+            Destroy(c);
+#endif
+        }
+    }
+}

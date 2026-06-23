@@ -1,0 +1,120 @@
+[gd_scene load_steps=2 format=3 uid="uid://cv8ikkyxkf6g0"]
+
+[ext_resource type="Script" path="res://demo_ui.gd" id="1_k1o4q"]
+
+[node name="Demo" type="Node"]
+
+[node name="MediapipeBridge" type="MediapipeBridge" parent="."]
+_import_path = NodePath("")
+unique_name_in_owner = false
+process_mode = 0
+process_priority = 0
+process_physics_priority = 0
+process_thread_group = 0
+editor_description = ""
+script = null
+
+[node name="AvatarAssembler3D" type="AvatarAssembler3D" parent="."]
+_import_path = NodePath("")
+unique_name_in_owner = false
+process_mode = 0
+process_priority = 0
+process_physics_priority = 0
+process_thread_group = 0
+editor_description = ""
+script = null
+
+[node name="HumanoidMapper3D" type="HumanoidMapper3D" parent="."]
+_import_path = NodePath("")
+unique_name_in_owner = false
+process_mode = 0
+process_priority = 0
+process_physics_priority = 0
+process_thread_group = 0
+editor_description = ""
+script = null
+
+[node name="UI" type="Control" parent="."]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_k1o4q")
+
+[node name="VBox" type="VBoxContainer" parent="UI"]
+layout_mode = 2
+offset_left = 8.0
+offset_top = 8.0
+offset_right = 380.0
+offset_bottom = 560.0
+
+[node name="Label1" type="Label" parent="UI/VBox"]
+layout_mode = 2
+text = "Load Base"
+
+[node name="BasePath" type="LineEdit" parent="UI/VBox"]
+layout_mode = 2
+placeholder_text = "res://path/to/base_avatar.tscn"
+
+[node name="BtnLoadBase" type="Button" parent="UI/VBox"]
+layout_mode = 2
+text = "Load Base"
+
+[node name="Label2" type="Label" parent="UI/VBox"]
+layout_mode = 2
+text = "Wardrobe (one path per line)"
+
+[node name="WardrobePaths" type="TextEdit" parent="UI/VBox"]
+custom_minimum_size = Vector2(0, 120)
+layout_mode = 2
+placeholder_text = "res://path/to/hair.tscn
+res://path/to/top.tscn"
+
+[node name="BtnAttachWardrobe" type="Button" parent="UI/VBox"]
+layout_mode = 2
+text = "Attach Wardrobe"
+
+[node name="Label3" type="Label" parent="UI/VBox"]
+layout_mode = 2
+text = "Materials"
+
+[node name="HBox1" type="HBoxContainer" parent="UI/VBox"]
+layout_mode = 2
+
+[node name="SkinColorLabel" type="Label" parent="UI/VBox/HBox1"]
+layout_mode = 2
+text = "Skin Color"
+
+[node name="SkinColor" type="ColorPickerButton" parent="UI/VBox/HBox1"]
+layout_mode = 2
+
+[node name="HBox2" type="HBoxContainer" parent="UI/VBox"]
+layout_mode = 2
+
+[node name="SkinToneLabel" type="Label" parent="UI/VBox/HBox2"]
+layout_mode = 2
+text = "Skin Tone"
+
+[node name="SkinTone" type="HSlider" parent="UI/VBox/HBox2"]
+layout_mode = 2
+max_value = 1.0
+step = 0.01
+value = 0.5
+
+[node name="BtnApplyMaterials" type="Button" parent="UI/VBox"]
+layout_mode = 2
+text = "Apply Materials"
+
+[node name="Label4" type="Label" parent="UI/VBox"]
+layout_mode = 2
+text = "Apply Preset"
+
+[node name="PresetPath" type="LineEdit" parent="UI/VBox"]
+layout_mode = 2
+placeholder_text = "res://path/to/preset.tres"
+
+[node name="BtnApplyPreset" type="Button" parent="UI/VBox"]
+layout_mode = 2
+text = "Apply Preset"
